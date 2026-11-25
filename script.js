@@ -3,6 +3,7 @@
 (() => {
   'use strict';
   const API = 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl';
+  const STANDINGS_API = 'https://site.api.espn.com/apis/v2/sports/hockey/nhl';
   const DB_NAME = 'nhl-local-predictions';
   const LOCAL_KEY = 'nhl-local-profile-v1';
   const ZONE = 'America/New_York';
@@ -21,12 +22,14 @@
   const seasonLabel = year => `${year-1}–${String(year).slice(-2)}`;
   const formatDay = (key, options) => new Intl.DateTimeFormat('en-US', {...options,timeZone:'UTC'}).format(dayDate(key));
   const isoNow = () => new Date().toISOString();
-  const emptyProfile = () => ({schemaVersion:1, username:'', usernameUpdatedAt:'1970-01-01T00:00:00.000Z', predictions:[]});
+  const emptyProfile = () => ({schemaVersion:1, username:'', usernameUpdatedAt:'1970-01-01T00:00:00.000Z', theme:'light', themeUpdatedAt:'1970-01-01T00:00:00.000Z', predictions:[]});
   let profile=emptyProfile(), db=null, storageMode='memory', saveQueue=Promise.resolve();
   let week=monday(today()), activePage='schedule', gameFilter='upcoming', weekGeneration=0;
   let games=new Map(), loadedDays=new Set(), dayFetched=new Map(), loading=false, refreshRunning=false, lastRefresh=null;
   const teamCache=new Map(), teamRequests=new Map();
+  const standingsCache=new Map(), standingsRequests=new Map();
   let channel=null;
+  let openTeamDetails=null, popoverTimer=null, hoverTimer=null, popoverRequest=0, suppressPopoverFocus=false, clearedHighlight=null;
 
   function notice(message) { $('notice').textContent=message; $('notice').hidden=!message; }
   // Reuse existing rows, controls and logos. Background refreshes should only
@@ -83,11 +86,11 @@
     const startTime=new Date(c.date || event.date).toISOString();
     return {gameId:String(event.id), startTime, date:dateKey(startTime), season:Number(event.season?.year || seasonFor(dateKey(startTime))), seasonType:Number(event.season?.type || event.seasonType?.type || 2), away:normalizeTeam(away.team), home:normalizeTeam(home.team), status:state, timeValid:c.timeValid!==false && event.timeValid!==false, detail:String(type.shortDetail || type.description || ''), score:(final || state==='live') && Number.isInteger(a) && Number.isInteger(h) ? {away:a,home:h} : null, winnerTeamId:final ? String(a>h ? away.team.id : home.team.id) : null};
   }
-  async function request(path) {
+  async function request(path,base=API) {
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),15000);
     try {
-      const response=await fetch(`${API}${path}`, {signal:controller.signal,credentials:'omit'});
+      const response=await fetch(`${base}${path}`, {signal:controller.signal,credentials:'omit'});
       if (!response.ok) throw new Error(`Schedule service returned ${response.status}`);
       return await response.json();
     } finally { clearTimeout(timeout); }
@@ -113,7 +116,8 @@
     const entries=new Map(a.predictions.map(p=>[p.gameId,p]));
     for(const p of b.predictions) entries.set(p.gameId,chooseRecord(entries.get(p.gameId),p));
     const user=Date.parse(b.usernameUpdatedAt)>Date.parse(a.usernameUpdatedAt) ? b : a;
-    return {schemaVersion:1,username:user.username,usernameUpdatedAt:user.usernameUpdatedAt,predictions:[...entries.values()]};
+    const appearance=Date.parse(b.themeUpdatedAt || 0)>Date.parse(a.themeUpdatedAt || 0) ? b : a;
+    return {schemaVersion:1,username:user.username,usernameUpdatedAt:user.usernameUpdatedAt,theme:appearance.theme || 'light',themeUpdatedAt:appearance.themeUpdatedAt || '1970-01-01T00:00:00.000Z',predictions:[...entries.values()]};
   }
   function dbRead() {
     return new Promise((resolve,reject)=> {
@@ -197,14 +201,16 @@
   async function pick(id,teamId) {
     const game=games.get(id);
     if(!game || !canPick(game)) { renderSchedule(); return; }
+    closeTeamPopover();
     let p=predictionFor(id);
     if(p) {
       // A null selection records a cleared pick so an older saved copy cannot
       // restore it during a merge. It never counts as a completed prediction.
       p.selectedTeamId=p.selectedTeamId===teamId ? null : teamId;
+      clearedHighlight=p.selectedTeamId===null ? {gameId:id,teamId} : null;
       p.updatedAt=new Date(Math.max(Date.now(),Date.parse(p.updatedAt)+1)).toISOString();
     }
-    else { p={...game, selectedTeamId:teamId,createdAt:isoNow(),updatedAt:isoNow(),lockedAt:null,result:'pending',pregameStreaks:{away:null,home:null},streaksVerified:false,streakBreaks:[]}; profile.predictions.push(p); }
+    else { clearedHighlight=null; p={...game, selectedTeamId:teamId,createdAt:isoNow(),updatedAt:isoNow(),lockedAt:null,result:'pending',pregameStreaks:{away:null,home:null},streaksVerified:false,streakBreaks:[]}; profile.predictions.push(p); }
     renderAll();
     await saveProfile();
     enrichStreaks([game]).catch(()=>{});
@@ -229,6 +235,36 @@
     })();
     teamRequests.set(key,pending);
     try { return await pending; } finally { teamRequests.delete(key); }
+  }
+  function normalizeStandings(response,season) {
+    const entries=response.standings?.entries;
+    const year=Number(response.season?.year || response.standings?.season);
+    if(year!==season || !Array.isArray(entries) || entries.length<2 || response.children?.length) throw new Error('League standings unavailable');
+    const teams=new Map();
+    for(const [index,entry] of entries.entries()) {
+      const points=entry.stats?.find(s=>s.name==='points')?.value;
+      const played=entry.stats?.find(s=>s.name==='gamesPlayed')?.value;
+      const id=String(entry.team?.id || '');
+      if(!/^\d+$/.test(id) || teams.has(id) || !Number.isInteger(points) || points<0 || !Number.isInteger(played) || played<0) throw new Error('Incomplete league standings');
+      // The level=1 endpoint is the league table in ESPN's standings order.
+      // Conference playoffSeed values are not overall NHL rankings.
+      teams.set(id,{position:index+1,points,played});
+    }
+    return {teams,total:teams.size,hasPlayed:[...teams.values()].some(t=>t.played>0),at:Date.now()};
+  }
+  async function leagueStandings(season) {
+    const cached=standingsCache.get(season);
+    if(cached && Date.now()-cached.at<300000) return cached;
+    if(standingsRequests.has(season)) return standingsRequests.get(season);
+    const pending=(async()=> {
+      try {
+        const response=await request(`/standings?season=${season}&type=0&level=1`,STANDINGS_API);
+        const table=normalizeStandings(response,season);
+        standingsCache.set(season,table); return table;
+      } catch(error) { if(cached) return cached; throw error; }
+    })();
+    standingsRequests.set(season,pending);
+    try { return await pending; } finally { standingsRequests.delete(season); }
   }
   function streakBefore(events,game,teamId) {
     const cutoff=Math.min(Date.parse(game.startTime),Date.now());
@@ -342,12 +378,165 @@
     if(!change) return '<span class="change neutral" aria-label="Unchanged">—</span>';
     return `<span class="change ${change>0?'up':'down'}" aria-label="${Math.abs(change).toFixed(1)} percentage points ${change>0?'higher':'lower'}">${change>0?'↑ +':'↓ −'}${Math.abs(change).toFixed(1)}</span>`;
   }
-  function logoURL(team) { return `https://assets.nhle.com/logos/nhl/svg/${encodeURIComponent(team.abbreviation)}_light.svg`; }
-  function teamHTML(team,{game=null,side='',interactive=false,selected=false,showStreak=true}={}) {
-    const streak=game?.pregameStreaks?.[side];
-    const s=showStreak ? `<span class="streak ${streak?.type==='W'?'win':streak?.type==='L'?'loss':''}" title="${streak?.count ? `${streak.count} consecutive ${streak.type==='W'?'wins':'losses'} before this game` : 'Streak unavailable or no completed games'}">${streak?.count ? `${streak.type}${streak.count}`:'—'}</span>` : '';
-    const content=`<img src="${escapeHTML(logoURL(team))}" alt="" width="25" height="25" loading="lazy" onerror="this.style.visibility='hidden'"><span>${escapeHTML(team.abbreviation)}</span>${s}`;
-    return interactive ? `<button class="team interactive${selected?' selected':''}" data-game="${game.gameId}" data-team="${escapeHTML(team.id)}" aria-label="Predict ${escapeHTML(team.name)} to win" aria-pressed="${selected}" title="${escapeHTML(team.name)}">${content}</button>` : `<span class="team${selected?' selected':''}" title="${escapeHTML(team.name)}">${content}</span>`;
+  function logoURL(team) { return `https://assets.nhle.com/logos/nhl/svg/${encodeURIComponent(team.abbreviation)}_${profile.theme==='dark'?'dark':'light'}.svg`; }
+  function teamHTML(team,{game=null,side='',interactive=false,selected=false}={}) {
+    const expanded=openTeamDetails?.gameId===game?.gameId && openTeamDetails?.side===side;
+    const logo=`<button type="button" class="team-info" aria-label="${escapeHTML(team.name)} details" aria-haspopup="dialog" aria-controls="team-popover" aria-expanded="${expanded}"><img src="${escapeHTML(logoURL(team))}" alt="" width="25" height="25" loading="lazy" onerror="this.style.visibility='hidden'"></button>`;
+    const label=interactive ? `<button class="team interactive${selected?' selected':''}" data-game="${game.gameId}" data-team="${escapeHTML(team.id)}" aria-label="Predict ${escapeHTML(team.name)} to win" aria-pressed="${selected}">${escapeHTML(team.abbreviation)}</button>` : `<span class="team${selected?' selected':''}">${escapeHTML(team.abbreviation)}</span>`;
+    const cleared=clearedHighlight?.gameId===game?.gameId && clearedHighlight?.teamId===team.id;
+    return `<span class="team-entry${selected?' is-selected':''}${cleared?' just-cleared':''}" data-game-id="${game?.gameId || ''}" data-team-id="${escapeHTML(team.id)}" data-side="${side}">${logo}${label}</span>`;
+  }
+  function closeTeamPopover(restoreFocus=false) {
+    clearTimeout(popoverTimer); clearTimeout(hoverTimer); popoverRequest++;
+    const anchor=openTeamDetails?.anchor;
+    openTeamDetails=null; $('team-popover').hidden=true;
+    anchor?.setAttribute('aria-expanded','false');
+    if(restoreFocus && anchor?.isConnected) {
+      suppressPopoverFocus=true; anchor.focus({preventScroll:true}); suppressPopoverFocus=false;
+    }
+  }
+  function positionTeamPopover() {
+    if(!openTeamDetails) return;
+    const popup=$('team-popover'), anchor=openTeamDetails.anchor;
+    if(!anchor.isConnected) { closeTeamPopover(); return; }
+    const viewport=window.visualViewport;
+    const width=viewport?.width || innerWidth, height=viewport?.height || innerHeight;
+    const offsetLeft=viewport?.offsetLeft || 0, offsetTop=viewport?.offsetTop || 0;
+    popup.style.width=`${Math.min(320,width-24)}px`;
+    popup.style.maxHeight=`${height-24}px`;
+    const rect=anchor.closest('.team-entry').getBoundingClientRect();
+    const above=rect.top-offsetTop-21, below=offsetTop+height-rect.bottom-21;
+    const placeBelow=below>=above;
+    // Keep the trigger uncovered even when the added standings make the
+    // popover taller. Small screens can scroll the details internally.
+    popup.style.maxHeight=`${Math.min(height-24,Math.max(80,placeBelow?below:above))}px`;
+    const box=popup.getBoundingClientRect();
+    const left=Math.max(offsetLeft+12,Math.min(rect.left,offsetLeft+width-box.width-12));
+    const top=placeBelow ? rect.bottom+9 : Math.max(offsetTop+12,rect.top-box.height-9);
+    popup.style.left=`${left}px`; popup.style.top=`${top}px`;
+  }
+  function popoverStats(events,game,side) {
+    const team=game[side], cutoff=Math.min(Date.parse(game.startTime),Date.now());
+    const finished=events.filter(e=>e.status==='final' && e.gameId!==game.gameId && Date.parse(e.startTime)<cutoff);
+    const streak=streakBefore(events,game,team.id);
+    const recent=finished.slice(0,5), wins=finished.filter(e=>e.winnerTeamId===team.id).length;
+    const scores=recent.filter(e=>e.score);
+    const goals=(own)=>scores.length ? (scores.reduce((sum,e)=>sum+e.score[(e.away.id===team.id)===own?'away':'home'],0)/scores.length).toFixed(1) : '—';
+    const streakText=streak?.count ? `${streak.type}${streak.count} · ${streak.count} straight ${streak.type==='W'?(streak.count===1?'win':'wins'):(streak.count===1?'loss':'losses')}` : streak?.count===0 ? 'No completed games yet' : 'Unavailable';
+    const latest=recent[0], opponent=latest && (latest.away.id===team.id?latest.home:latest.away);
+    const ownScore=latest && latest.score[latest.away.id===team.id?'away':'home'];
+    const opponentScore=latest && latest.score[latest.away.id===team.id?'home':'away'];
+    return `<dl class="popover-stats"><div><dt>Wins / losses</dt><dd>${finished.length ? `${wins} / ${finished.length-wins}` : '—'}</dd></div><div><dt>Streak</dt><dd class="popover-streak ${streak?.type==='W'?'win':streak?.type==='L'?'loss':''}">${streakText}</dd></div><div><dt>Last ${recent.length || 5}</dt><dd class="recent-results">${recent.length ? recent.map(e=>`<span class="${e.winnerTeamId===team.id?'result-correct':'result-incorrect'}">${e.winnerTeamId===team.id?'W':'L'}</span>`).join(' ') : '—'}</dd></div><div><dt>Goals/game · last ${recent.length || 5}</dt><dd>${goals(true)} / ${goals(false)}</dd></div></dl>${latest ? `<p class="popover-last">Last game: <span class="${latest.winnerTeamId===team.id?'result-correct':'result-incorrect'}">${latest.winnerTeamId===team.id?'W':'L'} ${ownScore}–${opponentScore}</span> vs ${escapeHTML(opponent.abbreviation)} <span class="quiet">(${formatDay(latest.date,{month:'short',day:'numeric'})})</span></p>`:''}`;
+  }
+  async function renderTeamStandings(game,team,token) {
+    const container=$('team-popover-standings');
+    const rows=(rank,points)=>`<dl class="popover-stats"><div><dt>League position</dt><dd>${rank}</dd></div><div><dt>Standings points</dt><dd>${points}</dd></div></dl>`;
+    renderMarkup(container,rows('Loading…','—'));
+    try {
+      const table=await leagueStandings(game.season);
+      if(token!==popoverRequest) return;
+      const entry=table.teams.get(team.id);
+      if(!entry) throw new Error('Team not found in league table');
+      const label=game.season<seasonFor(today())?'Final':'Latest';
+      renderMarkup(container,rows(table.hasPlayed?`${entry.position} / ${table.total}`:'Not ranked yet',`${entry.points} · ${entry.played} GP`));
+      container.setAttribute('aria-label',`${label} ${seasonLabel(game.season)} regular-season standings`);
+    } catch {
+      if(token!==popoverRequest) return;
+      renderMarkup(container,rows('Unavailable','—')+'<p class="popover-note quiet">Standings are unavailable right now. Close and reopen to retry.</p>');
+    }
+    positionTeamPopover();
+  }
+  async function showTeamPopover(entry,mode='hover') {
+    clearTimeout(popoverTimer);
+    const gameId=entry.dataset.gameId, side=entry.dataset.side;
+    const game=activePage==='history' ? predictionFor(gameId) : games.get(gameId) || predictionFor(gameId);
+    if(!game || !['away','home'].includes(side)) return;
+    const anchor=entry.querySelector('.team-info');
+    if(openTeamDetails?.anchor===anchor) { if(mode==='click') openTeamDetails.mode='click'; positionTeamPopover(); return; }
+    closeTeamPopover();
+    const token=++popoverRequest, team=game[side];
+    openTeamDetails={gameId,side,anchor,mode};
+    anchor.setAttribute('aria-expanded','true');
+    $('team-popover-name').textContent=team.name;
+    $('team-popover-season').textContent=`${seasonLabel(game.season)} · ${team.abbreviation}`;
+    $('team-popover-logo').src=logoURL(team);
+    $('team-popover-content').innerHTML='<p class="popover-note quiet">Loading team results…</p>';
+    $('team-popover-content').renderedHTML=null;
+    $('team-popover').hidden=false;
+    renderTeamStandings(game,team,token);
+    positionTeamPopover();
+    try {
+      const events=await teamSeason(team.id,game.season,game.seasonType);
+      if(token!==popoverRequest) return;
+      if(!events.some(e=>e.gameId===gameId)) throw new Error('Incomplete team schedule');
+      renderMarkup($('team-popover-content'),popoverStats(events,game,side));
+    } catch {
+      if(token!==popoverRequest) return;
+      const streak=game.pregameStreaks?.[side];
+      $('team-popover-content').innerHTML=`<p class="popover-note">${streak?.count ? `Saved pregame streak: ${streak.type}${streak.count}. `:''}Team results are unavailable right now. Close and reopen to retry.</p>`;
+      $('team-popover-content').renderedHTML=null;
+    }
+    positionTeamPopover();
+  }
+  function setupTeamPopovers() {
+    const popup=$('team-popover');
+    const deferClose=()=> {
+      clearTimeout(popoverTimer);
+      if(openTeamDetails?.mode==='click') return;
+      popoverTimer=setTimeout(()=> {
+        if(!popup.contains(document.activeElement) && document.activeElement!==openTeamDetails?.anchor) closeTeamPopover();
+      },180);
+    };
+    document.addEventListener('pointerover',event=> {
+      const entry=event.target.closest('.team-entry');
+      if(event.pointerType!=='touch' && entry && !entry.contains(event.relatedTarget)) {
+        clearTimeout(hoverTimer); clearTimeout(popoverTimer);
+        hoverTimer=setTimeout(()=> { if(entry.isConnected && entry.matches(':hover')) showTeamPopover(entry); },500);
+      }
+    });
+    document.addEventListener('pointerout',event=> {
+      const entry=event.target.closest('.team-entry');
+      if(entry && !entry.contains(event.relatedTarget)) {
+        clearTimeout(hoverTimer);
+        if(clearedHighlight?.gameId===entry.dataset.gameId && clearedHighlight?.teamId===entry.dataset.teamId) {
+          clearedHighlight=null; entry.classList.remove('just-cleared');
+        }
+        if(!popup.contains(event.relatedTarget)) deferClose();
+      }
+    });
+    popup.addEventListener('pointerenter',()=> { clearTimeout(popoverTimer); clearTimeout(hoverTimer); });
+    popup.addEventListener('pointerleave',deferClose);
+    document.addEventListener('focusin',event=> {
+      if(!suppressPopoverFocus && event.target.matches('.team-info:focus-visible')) showTeamPopover(event.target.closest('.team-entry'),'focus');
+    });
+    document.addEventListener('focusout',event=> {
+      if(openTeamDetails && !popup.contains(event.relatedTarget) && !openTeamDetails.anchor.closest('.team-entry').contains(event.relatedTarget)) {
+        if(event.relatedTarget && !popup.contains(event.relatedTarget)) closeTeamPopover();
+        else deferClose();
+      }
+    });
+    document.addEventListener('click',event=> {
+      const info=event.target.closest('.team-info');
+      if(info) {
+        if(openTeamDetails?.anchor===info && openTeamDetails.mode==='click') closeTeamPopover();
+        else showTeamPopover(info.closest('.team-entry'),'click');
+      } else if(!popup.contains(event.target)) closeTeamPopover();
+    });
+    $('close-team-popover').addEventListener('click',()=>closeTeamPopover(true));
+    document.addEventListener('keydown',event=> { if(event.key==='Escape' && openTeamDetails) { event.preventDefault(); closeTeamPopover(true); } });
+    window.addEventListener('resize',positionTeamPopover);
+    document.addEventListener('scroll',event=> { if(!popup.contains(event.target)) closeTeamPopover(); },true);
+  }
+  function renderTheme() {
+    document.documentElement.dataset.theme=profile.theme;
+    document.querySelector('meta[name="theme-color"]').content=profile.theme==='dark'?'#1a1a1a':'#f5f6f8';
+    $('theme-toggle').setAttribute('aria-pressed',String(profile.theme==='dark'));
+    $('theme-toggle').textContent=`Dark mode: ${profile.theme==='dark'?'On':'Off'}`;
+    if(openTeamDetails) {
+      const game=games.get(openTeamDetails.gameId) || predictionFor(openTeamDetails.gameId);
+      if(game) $('team-popover-logo').src=logoURL(game[openTeamDetails.side]);
+    }
+    try { localStorage.setItem('nhl-colour-theme',profile.theme); } catch { /* IndexedDB remains the primary profile store. */ }
   }
   function renderHeader() {
     const s=statsFor(profile.predictions);
@@ -381,7 +570,7 @@
         const time=game.status==='final' ? escapeHTML(game.detail || 'Final') : game.status==='live' ? `Live<small>${escapeHTML(game.detail)}</small>` : game.status==='postponed' ? 'Postponed' : game.status==='canceled' ? 'Canceled' : !game.timeValid ? 'TBD' : new Intl.DateTimeFormat('en-US',{timeZone:ZONE,hour:'numeric',minute:'2-digit'}).format(new Date(game.startTime));
         const team=selected===game.away.id ? game.away : game.home;
         const pickText=selected ? `<span class="picked">✓ ${escapeHTML(team.abbreviation)}</span>${completed(p) ? `<small class="result-${p.result}">${p.result==='correct'?'Correct':'Incorrect'}${p.streakBreaks.length?' · Streak Break':''}</small>` : !interactive ? '<small>Locked</small>':''}` : 'Unpicked';
-        html+=`<tr data-row-key="game-${game.gameId}"><td class="game-time">${time}</td><td><div class="matchup"><div class="matchup-teams">${teamHTML(game.away,{game,side:'away',interactive,selected:selected===game.away.id})}<span class="at">at</span>${teamHTML(game.home,{game,side:'home',interactive,selected:selected===game.home.id})}</div>${game.score?`<span class="score">${game.score.away}–${game.score.home}</span>`:''}</div></td><td class="pick-cell">${pickText}</td></tr>`;
+        html+=`<tr class="${p && completed(p)?`prediction-${p.result}`:''}" data-row-key="game-${game.gameId}"><td class="game-time">${time}</td><td><div class="matchup"><div class="matchup-teams">${teamHTML(game.away,{game,side:'away',interactive,selected:selected===game.away.id})}<span class="at">at</span>${teamHTML(game.home,{game,side:'home',interactive,selected:selected===game.home.id})}</div>${game.score?`<span class="score">${game.score.away}–${game.score.home}</span>`:''}</div></td><td class="pick-cell">${pickText}</td></tr>`;
       }
     }
     renderMarkup($('schedule-body'),html);
@@ -398,7 +587,7 @@
     const html=entries.length ? entries.map(p=> {
       const team=p.selectedTeamId===p.away.id?p.away:p.home;
       const breaks=p.streakBreaks.length ? `<span class="streak-break" title="${escapeHTML(p.streakBreaks.map(s=>`${s.abbreviation} ${s.type}${s.count} ended`).join('; '))}">Streak Break${p.streakBreaks.length>1?` ×${p.streakBreaks.length}`:''}</span>` : '';
-      return `<tr data-row-key="game-${p.gameId}"><td class="history-date">${formatDay(p.date,{month:'short',day:'numeric'})}<small style="display:block">${p.date.slice(0,4)}</small></td><td><div class="matchup"><div class="matchup-teams">${teamHTML(p.away,{showStreak:false})}<span class="at">at</span>${teamHTML(p.home,{showStreak:false})}</div><span class="score">${p.score.away}–${p.score.home}</span></div></td><td>${escapeHTML(team.abbreviation)}</td><td><span class="result-${p.result}">${p.result==='correct'?'✓ Correct':'✕ Incorrect'}</span>${breaks}${!p.streaksVerified?'<small class="quiet" style="display:block">Streak check pending</small>':''}</td></tr>`;
+      return `<tr class="prediction-${p.result}" data-row-key="game-${p.gameId}"><td class="history-date">${formatDay(p.date,{month:'short',day:'numeric'})}<small style="display:block">${p.date.slice(0,4)}</small></td><td><div class="matchup"><div class="matchup-teams">${teamHTML(p.away,{game:p,side:'away'})}<span class="at">at</span>${teamHTML(p.home,{game:p,side:'home'})}</div><span class="score">${p.score.away}–${p.score.home}</span></div></td><td>${escapeHTML(team.abbreviation)}</td><td><span class="result-${p.result}">${p.result==='correct'?'✓ Correct':'✕ Incorrect'}</span>${breaks}${!p.streaksVerified?'<small class="quiet" style="display:block">Streak check pending</small>':''}</td></tr>`;
     }).join('') : '<tr class="empty-row"><td colspan="4">No completed predictions'+(year||from||to?' match these filters.':" yet. Choose a team on the schedule to get started.")+'</td></tr>';
     renderMarkup($('history-body'),html);
   }
@@ -417,7 +606,7 @@
     renderMarkup($('accuracy-body'),rows.map(([label,s,previous])=>`<tr><td>${label}</td><td>${s.correct}</td><td>${s.total}</td><td>${accuracyHTML(s)}</td><td>${previous?changeHTML(s,previous):'<span class="change neutral" aria-label="No previous lifetime period">—</span>'}</td></tr>`).join(''));
     if(document.activeElement!==$('username')) $('username').value=profile.username;
   }
-  function renderAll() { renderHeader(); renderSchedule(); renderHistory(); renderProfile(); }
+  function renderAll() { renderTheme(); renderHeader(); renderSchedule(); renderHistory(); renderProfile(); if(openTeamDetails) positionTeamPopover(); }
 
   // Whitelist every imported field, validate the entire file before merging,
   // and recompute results and distinctions instead of trusting imported totals.
@@ -425,6 +614,7 @@
     const fail=()=>{throw new Error('This is not a supported profile backup, or a prediction contains invalid data. No data was imported.');};
     if(!input || input.schemaVersion!==1 || typeof input.username!=='string' || input.username.length>40 || !Array.isArray(input.predictions)) return fail();
     const validTime=s=>typeof s==='string' && Number.isFinite(Date.parse(s));
+    if(input.theme!==undefined && !['light','dark'].includes(input.theme)) return fail();
     const validId=s=>typeof s==='string' && /^\d{1,20}$/.test(s);
     const cleanTeam=t=> { if(!t || !validId(t.id) || typeof t.abbreviation!=='string' || !/^[A-Za-z0-9 .-]{1,12}$/.test(t.abbreviation) || typeof t.name!=='string' || !t.name || t.name.length>100) return fail(); return {id:t.id,abbreviation:t.abbreviation,name:t.name}; };
     const cleanStreak=s=> { if(s===null || s===undefined) return null; if(!['W','L',''].includes(s.type) || !Number.isInteger(s.count) || s.count<0 || s.count>1000 || (s.type==='' && s.count!==0) || (s.type!=='' && s.count===0)) return fail(); return {type:s.type,count:s.count}; };
@@ -444,7 +634,7 @@
       if(p.status==='final' || p.status==='live') p.lockedAt=p.lockedAt || p.startTime;
       settle(p); entries.set(p.gameId,chooseRecord(entries.get(p.gameId),p));
     }
-    return {schemaVersion:1,username:input.username,usernameUpdatedAt:validTime(input.usernameUpdatedAt)?new Date(input.usernameUpdatedAt).toISOString():'1970-01-01T00:00:00.000Z',predictions:[...entries.values()]};
+    return {schemaVersion:1,username:input.username,usernameUpdatedAt:validTime(input.usernameUpdatedAt)?new Date(input.usernameUpdatedAt).toISOString():'1970-01-01T00:00:00.000Z',theme:input.theme || 'light',themeUpdatedAt:validTime(input.themeUpdatedAt)?new Date(input.themeUpdatedAt).toISOString():'1970-01-01T00:00:00.000Z',predictions:[...entries.values()]};
   }
   function exportData() {
     const blob=new Blob([JSON.stringify({...profile,exportedAt:isoNow()},null,2)],{type:'application/json'});
@@ -458,6 +648,7 @@
       profile=mergeProfiles(profile,imported);
       // Importing an exported profile explicitly restores its optional username.
       profile.username=imported.username; profile.usernameUpdatedAt=isoNow();
+      profile.theme=imported.theme; profile.themeUpdatedAt=isoNow();
       const saved=await saveProfile();
       $('import-status').textContent=`Imported ${profile.predictions.length-count} new prediction${profile.predictions.length-count===1?'':'s'}; ${profile.predictions.length} preserved in total.${saved?' Saved on this device.':' Export a backup before closing.'}`;
       renderAll(); catchUp();
@@ -465,6 +656,7 @@
     finally { $('import-data').value=''; }
   }
   function route() {
+    closeTeamPopover();
     const page=location.hash.slice(1);
     activePage=['schedule','history','profile'].includes(page)?page:'schedule';
     for(const name of ['schedule','history','profile']) { $(`${name}-page`).hidden=name!==activePage; const link=document.querySelector(`[data-page="${name}"]`); if(name===activePage) link.setAttribute('aria-current','page'); else link.removeAttribute('aria-current'); }
@@ -473,6 +665,12 @@
   }
   async function init() {
     await openStorage();
+    setupTeamPopovers();
+    $('theme-toggle').addEventListener('click',async()=> {
+      profile.theme=profile.theme==='dark'?'light':'dark';
+      profile.themeUpdatedAt=new Date(Math.max(Date.now(),Date.parse(profile.themeUpdatedAt)+1)).toISOString();
+      renderAll(); $('theme-status').textContent=await saveProfile()?'Appearance saved.':'Could not save. Export a backup before closing.';
+    });
     $('schedule-body').addEventListener('click',event=> { const button=event.target.closest('button[data-game]'); if(button) pick(button.dataset.game,button.dataset.team); });
     $('previous-week').addEventListener('click',()=>{week=addDays(week,-7);loadWeek();});
     $('next-week').addEventListener('click',()=>{week=addDays(week,7);loadWeek();});
