@@ -18,11 +18,13 @@
 .history-table .team-entry .team{padding:0 2px}
 .prediction-correct>td{background-color:var(--correct-row)}
 .prediction-incorrect>td{background-color:var(--incorrect-row)}
-.appearance-row{display:flex;align-items:center;justify-content:space-between;gap:18px;max-width:480px;margin:22px 0 0}
+.appearance-section{position:relative;margin-top:32px;border-top:1px solid var(--line);padding:24px 0}
+.appearance-row{display:flex;align-items:center;justify-content:space-between;gap:18px;max-width:480px;margin:0}
+.appearance-section+.data-section{margin-top:0}
 .appearance-row h2{font-size:14px}
 .appearance-row .section-description{font-size:11px;margin:3px 0 0}
 .appearance-row .button{white-space:nowrap}
-#theme-status{font-size:11px;min-height:17px;margin:6px 0 0}
+#theme-status{position:absolute;left:0;right:0;bottom:3px;font-size:11px;min-height:17px;max-width:480px;margin:0}
 .team-popover{position:fixed;z-index:20;width:320px;max-width:calc(100vw - 24px);overflow:auto;overscroll-behavior:contain;padding:19px;background:var(--surface);color:inherit;border:1px solid var(--popover-border);border-radius:10px;box-shadow:0 8px 30px #0000001c;font-size:12px;line-height:1.5}
 .popover-close{position:absolute;top:7px;right:7px;width:32px;height:32px;border-radius:50%;font-size:22px;color:var(--muted);line-height:1}
 .popover-heading{display:flex;align-items:center;gap:11px;padding-right:16px;margin-bottom:17px}
@@ -87,3 +89,5 @@
 .header{position:sticky;top:0;z-index:10;align-self:start;min-height:54px;background:#fff}
 html{scroll-padding-top:80px}
 @media(max-width:760px){.header{min-height:69px;background:#f4f4f5}}
+.week-navigation .plain-button{background:transparent;-webkit-tap-highlight-color:transparent}
+.week-navigation .plain-button:hover:not(:disabled){background:transparent}
