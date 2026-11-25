@@ -92,10 +92,3 @@ html{scroll-padding-top:80px}
 .week-navigation .plain-button{background:transparent;-webkit-tap-highlight-color:transparent}
 .week-navigation .plain-button:hover:not(:disabled){background:transparent}
 
-/* Keep the mobile tabs in the same sticky block as the profile statistics. */
-.topbar{display:contents}
-@media(max-width:760px){
-  html{scroll-padding-top:140px}
-  .topbar{display:block;position:sticky;top:0;z-index:10}
-  .topbar .header{position:static;top:auto}
-}
