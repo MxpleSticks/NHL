@@ -40,8 +40,11 @@
 .recent-results{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:4px 7px}
 .recent-results>span{display:inline-flex}
 .recent-results img{width:24px;height:24px;object-fit:contain}
-.recent-results .result-correct img{filter:grayscale(1) sepia(1) saturate(4) hue-rotate(75deg)}
-.recent-results .result-incorrect img{filter:grayscale(1) sepia(1) saturate(4) hue-rotate(310deg)}
+/* Keep both white and dark artwork within a tintable brightness range. */
+.recent-results .result-correct img{filter:grayscale(1) brightness(.75) contrast(.5) sepia(1) saturate(3) hue-rotate(75deg)}
+.recent-results .result-incorrect img{filter:grayscale(1) brightness(.75) contrast(.5) sepia(1) saturate(3) hue-rotate(310deg)}
+:root[data-theme=dark] .recent-results .result-correct img{filter:grayscale(1) brightness(.75) contrast(.35) sepia(1) saturate(3) hue-rotate(75deg)}
+:root[data-theme=dark] .recent-results .result-incorrect img{filter:grayscale(1) brightness(.75) contrast(.35) sepia(1) saturate(3) hue-rotate(310deg)}
 .popover-note{font-size:10px;line-height:1.6;margin-top:10px}
 .popover-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;margin-top:13px;padding-top:4px;border-top:1px solid var(--line)}
 .popover-last{font-size:11px}
