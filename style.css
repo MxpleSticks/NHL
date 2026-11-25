@@ -37,7 +37,11 @@
 .popover-stats dd{margin:0;text-align:right;font-size:12px;font-weight:600}
 .popover-streak.win{color:var(--green)}.popover-streak.loss{color:var(--red)}
 .popover-stats .popover-streak{font-size:11px}
-.recent-results{display:flex;gap:7px;letter-spacing:.5px}
+.recent-results{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:4px 7px}
+.recent-results>span{display:inline-flex}
+.recent-results img{width:24px;height:24px;object-fit:contain}
+.recent-results .result-correct img{filter:grayscale(1) sepia(1) saturate(4) hue-rotate(75deg)}
+.recent-results .result-incorrect img{filter:grayscale(1) sepia(1) saturate(4) hue-rotate(310deg)}
 .popover-note{font-size:10px;line-height:1.6;margin-top:10px}
 .popover-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;margin-top:13px;padding-top:4px;border-top:1px solid var(--line)}
 .popover-last{font-size:11px}
