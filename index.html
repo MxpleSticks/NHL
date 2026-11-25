@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f6f8">
+  <meta name="description" content="Your weekly NHL predictions, results and accuracy. Saved on your device.">
+  <title>NHL schedule</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <header class="header">
+      <div class="lifetime" aria-label="Lifetime statistics">
+        <div id="header-username" class="header-username" hidden></div>
+        <div class="header-stats"><span>Lifetime <strong id="header-points">0</strong> pts</span><span class="stat-divider"></span><span><strong id="header-accuracy" class="accuracy unavailable">—</strong> accuracy</span></div>
+      </div>
+    </header>
+    <nav class="navigation" aria-label="Main navigation">
+      <a href="#schedule" data-page="schedule" aria-current="page">Schedule</a>
+      <a href="#history" data-page="history">History</a>
+      <a href="#profile" data-page="profile">Local profile</a>
+    </nav>
+    <main id="main" tabindex="-1">
+      <div id="notice" class="notice" role="status" hidden></div>
+      <section id="schedule-page" aria-labelledby="schedule-title">
+        <div class="title-row"><div><h1 id="schedule-title">Schedule</h1><p id="week-label" class="subtitle"></p></div>
+          <div class="week-navigation"><button id="previous-week" class="arrow-button" aria-label="Previous week">‹</button><button id="this-week" class="plain-button">This week</button><button id="next-week" class="arrow-button" aria-label="Next week">›</button></div>
+        </div>
+        <div class="schedule-toolbar"><div class="tabs" role="group" aria-label="Game status"><button id="upcoming-tab" aria-pressed="true">Upcoming <span id="upcoming-count">0</span></button><button id="final-tab" aria-pressed="false">Final <span id="final-count">0</span></button></div><button id="refresh" class="text-button">Refresh</button></div>
+        <p id="schedule-status" class="quiet status-line" role="status">Loading schedule…</p>
+        <div class="table-wrap"><table class="schedule-table"><thead><tr><th scope="col" class="time-column">Time (ET)</th><th scope="col">Matchup</th><th scope="col" class="pick-column">Your pick</th></tr></thead><tbody id="schedule-body"></tbody></table></div>
+        <p class="footnote">Click either team to choose the winner. Click your selected team again to clear your pick. You can change or clear picks until the game starts.</p>
+        <p class="footnote">W / L = consecutive wins / losses. Streaks reset each season; preseason is separate.</p>
+      </section>
+      <section id="history-page" aria-labelledby="history-title" hidden>
+        <h1 id="history-title">History</h1><p class="subtitle">Every completed prediction, saved across seasons.</p>
+        <div class="history-filters"><label>Season<select id="history-season"><option value="">All seasons</option></select></label><label>From<input type="date" id="history-from"></label><label>To<input type="date" id="history-to"></label><button id="clear-filters" class="text-button">Clear filters</button></div>
+        <p id="history-summary" class="quiet status-line"></p>
+        <div class="table-wrap"><table class="history-table"><thead><tr><th scope="col">Date (ET)</th><th scope="col">Matchup / final score</th><th scope="col">Your pick</th><th scope="col">Result</th></tr></thead><tbody id="history-body"></tbody></table></div>
+        <p class="footnote">A Streak Break marks a correct pick that ended a winning or losing streak of at least four. Each team's broken streak counts once. No extra points.</p>
+      </section>
+      <section id="profile-page" aria-labelledby="profile-title" hidden>
+        <h1 id="profile-title">Local profile</h1><p class="subtitle">Your predictions. Saved on this device.</p>
+        <form id="username-form" class="username-form"><label for="username">Username <span class="quiet">(optional)</span></label><div class="input-row"><input id="username" name="username" maxlength="40" autocomplete="nickname" placeholder="Enter a username"><button type="submit" class="button">Save</button></div><span id="username-status" class="quiet" role="status"></span></form>
+        <dl class="profile-totals"><div><dt>Lifetime points</dt><dd id="profile-points">0</dd></div><div><dt>Streak breaks</dt><dd id="profile-breaks">0</dd></div></dl>
+        <h2>Accuracy</h2><p class="section-description">Correct picks divided by completed picks.</p>
+        <div class="table-wrap"><table class="accuracy-table"><thead><tr><th scope="col">Period</th><th scope="col">Correct</th><th scope="col">Completed</th><th scope="col">Accuracy</th><th scope="col">Change <span class="quiet">(pp)</span></th></tr></thead><tbody id="accuracy-body"></tbody></table></div>
+        <p class="footnote">Changes compare with the full previous day, week, month or season. Weeks start Monday; dates use Eastern Time. A dash means no change, no previous period, or insufficient data.</p>
+        <p class="footnote">80% or higher earns a subtle rainbow colour after 50 completed predictions in that period.</p>
+        <div class="data-section"><h2>Your data</h2><p class="section-description">Export a backup to keep your full history, or move it to another browser.</p><div class="data-actions"><button id="export-data" class="button">Export JSON</button><label class="button import-button" for="import-data">Import JSON<input id="import-data" type="file" accept="application/json,.json"></label></div><p id="import-status" class="quiet" role="status"></p>
+          <p class="footnote">Imports merge by game ID and keep existing history. Your username, picks, scores, results and streak-break details are included. Export files from this site can be imported again.</p>
+          <p class="footnote">There is no account or cloud backup. Each browser has its own profile. Clearing site data, using private browsing, or changing the site's address can make local data unavailable. Export regularly.</p>
+        </div>
+        <p class="footnote points-note">Each correct prediction earns one point. Unpicked and unfinished games don't count toward accuracy. Points have no monetary value and cannot be spent or exchanged.</p>
+      </section>
+      <footer><span>NHL schedule &amp; results via ESPN.</span><span>Local data · No registration</span></footer>
+    </main>
+  </div>
+</body>
+</html>
