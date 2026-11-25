@@ -25,7 +25,7 @@
 .appearance-row .section-description{font-size:11px;margin:3px 0 0}
 .appearance-row .button{white-space:nowrap}
 #theme-status{position:absolute;left:0;right:0;bottom:3px;font-size:11px;min-height:17px;max-width:480px;margin:0}
-.team-popover{position:fixed;z-index:20;width:320px;max-width:calc(100vw - 24px);overflow:auto;overscroll-behavior:contain;padding:19px;background:var(--surface);color:inherit;border:1px solid var(--popover-border);border-radius:10px;box-shadow:0 8px 30px #0000001c;font-size:12px;line-height:1.5}
+.team-popover{position:fixed;z-index:20;width:350px;max-width:calc(100vw - 24px);overflow:auto;overscroll-behavior:contain;padding:19px;background:var(--surface);color:inherit;border:1px solid var(--popover-border);border-radius:10px;box-shadow:0 8px 30px #0000001c;font-size:12px;line-height:1.5}
 .popover-close{position:absolute;top:7px;right:7px;width:32px;height:32px;border-radius:50%;font-size:22px;color:var(--muted);line-height:1}
 .popover-heading{display:flex;align-items:center;gap:11px;padding-right:16px;margin-bottom:17px}
 .popover-heading>img{width:42px;height:42px;object-fit:contain;flex-shrink:0}
@@ -39,7 +39,8 @@
 .popover-stats .popover-streak{font-size:11px}
 .recent-results{display:flex;gap:7px;letter-spacing:.5px}
 .popover-note{font-size:10px;line-height:1.6;margin-top:10px}
-.popover-last{font-size:11px;margin-top:13px;padding-top:11px;border-top:1px solid var(--line)}
+.popover-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;margin-top:13px;padding-top:4px;border-top:1px solid var(--line)}
+.popover-last{font-size:11px}
 @media(max-width:760px){.team-entry{gap:1px}.team-info{width:30px;min-height:40px}.team-info img{width:24px;height:24px}.team-entry .team{min-height:40px;padding:2px}.team-popover{padding:18px;border-radius:10px}.team-popover .popover-close{width:36px;height:36px}.appearance-row{gap:12px}.appearance-row .section-description{max-width:170px}}
 @media(max-width:380px){.team-info{width:24px;min-height:38px}.team-info img{width:20px;height:20px}.team-entry .team{min-height:38px;padding:2px 1px}}
 
@@ -91,4 +92,7 @@ html{scroll-padding-top:80px}
 @media(max-width:760px){.header{min-height:69px;background:#f4f4f5}}
 .week-navigation .plain-button{background:transparent;-webkit-tap-highlight-color:transparent}
 .week-navigation .plain-button:hover:not(:disabled){background:transparent}
+.popover-link{display:inline-block;line-height:44px;min-height:44px;margin-left:auto;color:inherit;font-size:13px;white-space:nowrap;text-decoration:underline;text-underline-offset:3px;text-decoration-skip-ink:none}
+.popover-link:hover{color:inherit}
+@media(pointer:coarse){.popover-link{min-height:44px;line-height:44px}}
 
