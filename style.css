@@ -69,3 +69,17 @@
 #team-popover-standings{margin-bottom:15px}
 
 .team-entry.just-cleared,[data-theme=dark] .team-entry.just-cleared{background:transparent;border-color:transparent}
+.picked{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;vertical-align:middle}
+.pick-logo{display:block;width:25px;height:25px;object-fit:contain;flex-shrink:0}
+
+@media(max-width:760px){.pick-logo{width:24px;height:24px}}
+@media(max-width:380px){.pick-logo{width:20px;height:20px}}
+
+/* Equal team slots keep both sides aligned across every matchup. */
+.matchup-teams{--team-width:74px;display:grid;grid-template-columns:var(--team-width) 14px var(--team-width);align-items:center}
+.matchup-teams>.at{text-align:center}
+.team-entry{width:var(--team-width,74px);min-width:0}
+.team-entry .team{flex:1;min-width:0;justify-content:flex-start}
+@media(max-width:1050px){.matchup-teams{--team-width:70px}}
+@media(max-width:760px){.matchup-teams{--team-width:64px;grid-template-columns:var(--team-width) 10px var(--team-width)}}
+@media(max-width:380px){.matchup{gap:1px}.matchup-teams{--team-width:56px;grid-template-columns:var(--team-width) 9px var(--team-width)}}
