@@ -435,8 +435,13 @@
     const latest=recent[0], opponent=latest && (latest.away.id===team.id?latest.home:latest.away);
     const ownScore=latest && latest.score[latest.away.id===team.id?'away':'home'];
     const opponentScore=latest && latest.score[latest.away.id===team.id?'home':'away'];
+    const recentResults=recent.map(event=>{
+      const opponent=event.away.id===team.id?event.home:event.away;
+      const won=event.winnerTeamId===team.id;
+      return `<span class="${won?'result-correct':'result-incorrect'}"><img src="${escapeHTML(logoURL(opponent))}" alt="${won?'Won against':'Lost to'} ${escapeHTML(opponent.name)}" width="24" height="24"></span>`;
+    }).join(' ');
     return {
-      stats:`<dl class="popover-stats"><div><dt>Wins / losses</dt><dd>${finished.length ? `${wins} / ${finished.length-wins}` : '—'}</dd></div><div><dt>Streak</dt><dd class="popover-streak ${streak?.type==='W'?'win':streak?.type==='L'?'loss':''}">${streakText}</dd></div><div><dt>Last ${recent.length || 5}</dt><dd class="recent-results">${recent.length ? recent.map(e=>`<span class="${e.winnerTeamId===team.id?'result-correct':'result-incorrect'}">${e.winnerTeamId===team.id?'W':'L'}</span>`).join(' ') : '—'}</dd></div><div><dt>Goals/game · last ${recent.length || 5}</dt><dd>${goals(true)} / ${goals(false)}</dd></div></dl>`,
+      stats:`<dl class="popover-stats"><div><dt>Wins / losses</dt><dd>${finished.length ? `${wins} / ${finished.length-wins}` : '—'}</dd></div><div><dt>Streak</dt><dd class="popover-streak ${streak?.type==='W'?'win':streak?.type==='L'?'loss':''}">${streakText}</dd></div><div><dt>Last ${recent.length || 5}</dt><dd class="recent-results">${recentResults || '—'}</dd></div><div><dt>Goals/game · last ${recent.length || 5}</dt><dd>${goals(true)} / ${goals(false)}</dd></div></dl>`,
       lastGame:latest ? `<p class="popover-last">Last game: <span class="${latest.winnerTeamId===team.id?'result-correct':'result-incorrect'}">${latest.winnerTeamId===team.id?'W':'L'} ${ownScore}–${opponentScore}</span> vs ${escapeHTML(opponent.abbreviation)} <span class="quiet">(${formatDay(latest.date,{month:'short',day:'numeric'})})</span></p>`:''
     };
   }
