@@ -4,6 +4,12 @@
   'use strict';
   const API = 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl';
   const STANDINGS_API = 'https://site.api.espn.com/apis/v2/sports/hockey/nhl';
+  const PUCKALYTICS_TEAMS={
+    ANA:'anaheim-ducks',BOS:'boston-bruins',BUF:'buffalo-sabres',CGY:'calgary-flames',CAR:'carolina-hurricanes',CHI:'chicago-blackhawks',COL:'colorado-avalanche',CBJ:'columbus-blue-jackets',
+    DAL:'dallas-stars',DET:'detroit-red-wings',EDM:'edmonton-oilers',FLA:'florida-panthers',LAK:'los-angeles-kings',MIN:'minnesota-wild',MTL:'montreal-canadiens',NSH:'nashville-predators',
+    NJD:'new-jersey-devils',NYI:'new-york-islanders',NYR:'new-york-rangers',OTT:'ottawa-senators',PHI:'philadelphia-flyers',PIT:'pittsburgh-penguins',SJS:'san-jose-sharks',SEA:'seattle-kraken',
+    STL:'st-louis-blues',TBL:'tampa-bay-lightning',TOR:'toronto-maple-leafs',UTA:'utah-mammoth',VAN:'vancouver-canucks',VGK:'vegas-golden-knights',WSH:'washington-capitals',WPG:'winnipeg-jets'
+  };
   const DB_NAME = 'nhl-local-predictions';
   const LOCAL_KEY = 'nhl-local-profile-v1';
   const ZONE = 'America/New_York';
@@ -405,7 +411,7 @@
     const viewport=window.visualViewport;
     const width=viewport?.width || innerWidth, height=viewport?.height || innerHeight;
     const offsetLeft=viewport?.offsetLeft || 0, offsetTop=viewport?.offsetTop || 0;
-    popup.style.width=`${Math.min(320,width-24)}px`;
+    popup.style.width=`${Math.min(350,width-24)}px`;
     popup.style.maxHeight=`${height-24}px`;
     const rect=anchor.closest('.team-entry').getBoundingClientRect();
     const above=rect.top-offsetTop-21, below=offsetTop+height-rect.bottom-21;
@@ -429,7 +435,10 @@
     const latest=recent[0], opponent=latest && (latest.away.id===team.id?latest.home:latest.away);
     const ownScore=latest && latest.score[latest.away.id===team.id?'away':'home'];
     const opponentScore=latest && latest.score[latest.away.id===team.id?'home':'away'];
-    return `<dl class="popover-stats"><div><dt>Wins / losses</dt><dd>${finished.length ? `${wins} / ${finished.length-wins}` : '—'}</dd></div><div><dt>Streak</dt><dd class="popover-streak ${streak?.type==='W'?'win':streak?.type==='L'?'loss':''}">${streakText}</dd></div><div><dt>Last ${recent.length || 5}</dt><dd class="recent-results">${recent.length ? recent.map(e=>`<span class="${e.winnerTeamId===team.id?'result-correct':'result-incorrect'}">${e.winnerTeamId===team.id?'W':'L'}</span>`).join(' ') : '—'}</dd></div><div><dt>Goals/game · last ${recent.length || 5}</dt><dd>${goals(true)} / ${goals(false)}</dd></div></dl>${latest ? `<p class="popover-last">Last game: <span class="${latest.winnerTeamId===team.id?'result-correct':'result-incorrect'}">${latest.winnerTeamId===team.id?'W':'L'} ${ownScore}–${opponentScore}</span> vs ${escapeHTML(opponent.abbreviation)} <span class="quiet">(${formatDay(latest.date,{month:'short',day:'numeric'})})</span></p>`:''}`;
+    return {
+      stats:`<dl class="popover-stats"><div><dt>Wins / losses</dt><dd>${finished.length ? `${wins} / ${finished.length-wins}` : '—'}</dd></div><div><dt>Streak</dt><dd class="popover-streak ${streak?.type==='W'?'win':streak?.type==='L'?'loss':''}">${streakText}</dd></div><div><dt>Last ${recent.length || 5}</dt><dd class="recent-results">${recent.length ? recent.map(e=>`<span class="${e.winnerTeamId===team.id?'result-correct':'result-incorrect'}">${e.winnerTeamId===team.id?'W':'L'}</span>`).join(' ') : '—'}</dd></div><div><dt>Goals/game · last ${recent.length || 5}</dt><dd>${goals(true)} / ${goals(false)}</dd></div></dl>`,
+      lastGame:latest ? `<p class="popover-last">Last game: <span class="${latest.winnerTeamId===team.id?'result-correct':'result-incorrect'}">${latest.winnerTeamId===team.id?'W':'L'} ${ownScore}–${opponentScore}</span> vs ${escapeHTML(opponent.abbreviation)} <span class="quiet">(${formatDay(latest.date,{month:'short',day:'numeric'})})</span></p>`:''
+    };
   }
   async function renderTeamStandings(game,team,token) {
     const container=$('team-popover-standings');
@@ -463,8 +472,15 @@
     $('team-popover-name').textContent=team.name;
     $('team-popover-season').textContent=`${seasonLabel(game.season)} · ${team.abbreviation}`;
     $('team-popover-logo').src=logoURL(team);
+    const slug=Object.hasOwn(PUCKALYTICS_TEAMS,team.abbreviation)?PUCKALYTICS_TEAMS[team.abbreviation]:null, link=$('team-popover-link');
+    link.hidden=!slug;
+    if(slug) {
+      link.href=`https://www.puckalytics.com/teams/${slug}`;
+      link.setAttribute('aria-label',`View ${team.name} on Puckalytics (opens in a new tab)`);
+    } else link.removeAttribute('href');
     $('team-popover-content').innerHTML='<p class="popover-note quiet">Loading team results…</p>';
     $('team-popover-content').renderedHTML=null;
+    renderMarkup($('team-popover-last'),'');
     $('team-popover').hidden=false;
     renderTeamStandings(game,team,token);
     positionTeamPopover();
@@ -472,7 +488,9 @@
       const events=await teamSeason(team.id,game.season,game.seasonType);
       if(token!==popoverRequest) return;
       if(!events.some(e=>e.gameId===gameId)) throw new Error('Incomplete team schedule');
-      renderMarkup($('team-popover-content'),popoverStats(events,game,side));
+      const details=popoverStats(events,game,side);
+      renderMarkup($('team-popover-content'),details.stats);
+      renderMarkup($('team-popover-last'),details.lastGame);
     } catch {
       if(token!==popoverRequest) return;
       const streak=game.pregameStreaks?.[side];
