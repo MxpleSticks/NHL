@@ -379,6 +379,9 @@
     return `<span class="change ${change>0?'up':'down'}" aria-label="${Math.abs(change).toFixed(1)} percentage points ${change>0?'higher':'lower'}">${change>0?'↑ +':'↓ −'}${Math.abs(change).toFixed(1)}</span>`;
   }
   function logoURL(team) { return `https://assets.nhle.com/logos/nhl/svg/${encodeURIComponent(team.abbreviation)}_${profile.theme==='dark'?'dark':'light'}.svg`; }
+  function pickedTeamHTML(team) {
+    return `<span class="picked" aria-label="Your pick: ${escapeHTML(team.name)}"><img class="pick-logo" src="${escapeHTML(logoURL(team))}" alt="" width="25" height="25" loading="lazy" onerror="this.style.visibility='hidden'">${escapeHTML(team.abbreviation)}</span>`;
+  }
   function teamHTML(team,{game=null,side='',interactive=false,selected=false}={}) {
     const expanded=openTeamDetails?.gameId===game?.gameId && openTeamDetails?.side===side;
     const logo=`<button type="button" class="team-info" aria-label="${escapeHTML(team.name)} details" aria-haspopup="dialog" aria-controls="team-popover" aria-expanded="${expanded}"><img src="${escapeHTML(logoURL(team))}" alt="" width="25" height="25" loading="lazy" onerror="this.style.visibility='hidden'"></button>`;
@@ -569,7 +572,7 @@
         const p=predictionFor(game.gameId), selected=p?.selectedTeamId, interactive=canPick(game);
         const time=game.status==='final' ? escapeHTML(game.detail || 'Final') : game.status==='live' ? `Live<small>${escapeHTML(game.detail)}</small>` : game.status==='postponed' ? 'Postponed' : game.status==='canceled' ? 'Canceled' : !game.timeValid ? 'TBD' : new Intl.DateTimeFormat('en-US',{timeZone:ZONE,hour:'numeric',minute:'2-digit'}).format(new Date(game.startTime));
         const team=selected===game.away.id ? game.away : game.home;
-        const pickText=selected ? `<span class="picked">✓ ${escapeHTML(team.abbreviation)}</span>${completed(p) ? `<small class="result-${p.result}">${p.result==='correct'?'Correct':'Incorrect'}${p.streakBreaks.length?' · Streak Break':''}</small>` : !interactive ? '<small>Locked</small>':''}` : 'Unpicked';
+        const pickText=selected ? `${pickedTeamHTML(team)}${completed(p) ? `<small class="result-${p.result}">${p.result==='correct'?'Correct':'Incorrect'}${p.streakBreaks.length?' · Streak Break':''}</small>` : !interactive ? '<small>Locked</small>':''}` : 'Unpicked';
         html+=`<tr class="${p && completed(p)?`prediction-${p.result}`:''}" data-row-key="game-${game.gameId}"><td class="game-time">${time}</td><td><div class="matchup"><div class="matchup-teams">${teamHTML(game.away,{game,side:'away',interactive,selected:selected===game.away.id})}<span class="at">at</span>${teamHTML(game.home,{game,side:'home',interactive,selected:selected===game.home.id})}</div>${game.score?`<span class="score">${game.score.away}–${game.score.home}</span>`:''}</div></td><td class="pick-cell">${pickText}</td></tr>`;
       }
     }
