@@ -7,6 +7,7 @@
   <meta name="description" content="Your weekly NHL predictions, results and accuracy. Saved on your device.">
   <title>NHL schedule</title>
   <link rel="stylesheet" href="style.css">
+  <script>try { document.documentElement.dataset.theme=localStorage.getItem('nhl-colour-theme')==='dark'?'dark':'light'; } catch {}</script>
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -32,8 +33,8 @@
         <div class="schedule-toolbar"><div class="tabs" role="group" aria-label="Game status"><button id="upcoming-tab" aria-pressed="true">Upcoming <span id="upcoming-count">0</span></button><button id="final-tab" aria-pressed="false">Final <span id="final-count">0</span></button></div><button id="refresh" class="text-button">Refresh</button></div>
         <p id="schedule-status" class="quiet status-line" role="status">Loading schedule…</p>
         <div class="table-wrap"><table class="schedule-table"><thead><tr><th scope="col" class="time-column">Time (ET)</th><th scope="col">Matchup</th><th scope="col" class="pick-column">Your pick</th></tr></thead><tbody id="schedule-body"></tbody></table></div>
-        <p class="footnote">Click either team to choose the winner. Click your selected team again to clear your pick. You can change or clear picks until the game starts.</p>
-        <p class="footnote">W / L = consecutive wins / losses. Streaks reset each season; preseason is separate.</p>
+        <p class="footnote">Click a team abbreviation to choose the winner; click it again to clear your pick before the game starts.</p>
+        <p class="footnote">Hover a team, or tap its logo, for stats and streaks. Streaks reset each season; preseason is separate.</p>
       </section>
       <section id="history-page" aria-labelledby="history-title" hidden>
         <h1 id="history-title">History</h1><p class="subtitle">Every completed prediction, saved across seasons.</p>
@@ -45,13 +46,14 @@
       <section id="profile-page" aria-labelledby="profile-title" hidden>
         <h1 id="profile-title">Local profile</h1><p class="subtitle">Your predictions. Saved on this device.</p>
         <form id="username-form" class="username-form"><label for="username">Username <span class="quiet">(optional)</span></label><div class="input-row"><input id="username" name="username" maxlength="40" autocomplete="nickname" placeholder="Enter a username"><button type="submit" class="button">Save</button></div><span id="username-status" class="quiet" role="status"></span></form>
+        <div class="appearance-row"><div><h2>Appearance</h2><p class="section-description">Saved on this device and in your JSON backup.</p></div><button id="theme-toggle" class="button" type="button" aria-pressed="false">Dark mode: Off</button></div><p id="theme-status" class="quiet" role="status"></p>
         <dl class="profile-totals"><div><dt>Lifetime points</dt><dd id="profile-points">0</dd></div><div><dt>Streak breaks</dt><dd id="profile-breaks">0</dd></div></dl>
         <h2>Accuracy</h2><p class="section-description">Correct picks divided by completed picks.</p>
         <div class="table-wrap"><table class="accuracy-table"><thead><tr><th scope="col">Period</th><th scope="col">Correct</th><th scope="col">Completed</th><th scope="col">Accuracy</th><th scope="col">Change <span class="quiet">(pp)</span></th></tr></thead><tbody id="accuracy-body"></tbody></table></div>
         <p class="footnote">Changes compare with the full previous day, week, month or season. Weeks start Monday; dates use Eastern Time. A dash means no change, no previous period, or insufficient data.</p>
         <p class="footnote">80% or higher earns a subtle rainbow colour after 50 completed predictions in that period.</p>
         <div class="data-section"><h2>Your data</h2><p class="section-description">Export a backup to keep your full history, or move it to another browser.</p><div class="data-actions"><button id="export-data" class="button">Export JSON</button><label class="button import-button" for="import-data">Import JSON<input id="import-data" type="file" accept="application/json,.json"></label></div><p id="import-status" class="quiet" role="status"></p>
-          <p class="footnote">Imports merge by game ID and keep existing history. Your username, picks, scores, results and streak-break details are included. Export files from this site can be imported again.</p>
+          <p class="footnote">Imports merge by game ID and keep existing history. Your username, appearance setting, picks, scores, results and streak-break details are included. Export files from this site can be imported again.</p>
           <p class="footnote">There is no account or cloud backup. Each browser has its own profile. Clearing site data, using private browsing, or changing the site's address can make local data unavailable. Export regularly.</p>
         </div>
         <p class="footnote points-note">Each correct prediction earns one point. Unpicked and unfinished games don't count toward accuracy. Points have no monetary value and cannot be spent or exchanged.</p>
@@ -59,5 +61,11 @@
       <footer><span>NHL schedule &amp; results via ESPN.</span><span>Local data · No registration</span></footer>
     </main>
   </div>
+  <aside id="team-popover" class="team-popover" role="dialog" aria-modal="false" aria-labelledby="team-popover-name" hidden>
+    <button id="close-team-popover" class="popover-close" type="button" aria-label="Close team details">×</button>
+    <div class="popover-heading"><img id="team-popover-logo" alt="" width="42" height="42"><div><h2 id="team-popover-name"></h2><p id="team-popover-season" class="quiet"></p></div></div>
+    <div id="team-popover-standings" aria-live="polite"></div>
+    <div id="team-popover-content" aria-live="polite"></div>
+  </aside>
 </body>
 </html>
