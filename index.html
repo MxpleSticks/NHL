@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#f5f6f8">
   <meta name="description" content="Your weekly NHL predictions, results and accuracy. Saved on your device.">
   <title>NHL schedule</title>
-  <link rel="stylesheet" href="style.css?v=20261126-final-icons">
+  <link rel="stylesheet" href="style.css?v=20261126-top-teams">
   <script>try { document.documentElement.dataset.theme=localStorage.getItem('nhl-colour-theme')==='dark'?'dark':'light'; } catch {}</script>
-  <script src="script.js?v=20261126-final-icons" defer></script>
+  <script src="script.js?v=20261126-top-teams" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -33,7 +33,7 @@
         </div>
         <div class="schedule-toolbar"><div class="tabs" role="group" aria-label="Game status"><button id="upcoming-tab" aria-pressed="true">Upcoming <span id="upcoming-count">0</span></button><button id="final-tab" aria-pressed="false">Final <span id="final-count">0</span></button></div><button id="refresh" class="text-button">Refresh</button></div>
         <p id="schedule-status" class="quiet status-line" role="status">Loading schedule…</p>
-        <div class="table-wrap"><table class="schedule-table"><thead><tr><th scope="col" class="time-column">Time (ET)</th><th scope="col">Matchup</th><th scope="col" class="pick-column">Your pick</th></tr></thead><tbody id="schedule-body"></tbody></table></div>
+        <div class="table-wrap"><table class="schedule-table"><colgroup id="schedule-columns"><col class="time-column"><col><col class="pick-column"></colgroup><thead><tr><th scope="col" class="time-column">Time (ET)</th><th scope="col">Matchup</th><th scope="col" class="pick-column">Your pick</th><th scope="col" id="schedule-result-heading" hidden>Result</th></tr></thead><tbody id="schedule-body"></tbody></table></div>
         <p class="footnote">Click a team abbreviation to choose the winner; click it again to clear your pick before the game starts.</p>
         <p class="footnote">Hover a team, or tap its logo, for stats and streaks. Streaks reset each season; preseason is separate.</p>
       </section>
