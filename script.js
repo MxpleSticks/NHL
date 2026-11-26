@@ -562,13 +562,15 @@
   }
   function popoverStats(events,game,side) {
     const team=game[side], cutoff=Math.min(Date.parse(game.startTime),Date.now());
-    const finished=events.filter(e=>e.status==='final' && e.gameId!==game.gameId && Date.parse(e.startTime)<cutoff);
+    const finished=events.filter(e=>e.status==='final' && e.gameId!==game.gameId && Date.parse(e.startTime)<cutoff).sort((a,b)=>Date.parse(b.startTime)-Date.parse(a.startTime));
     const streak=streakBefore(events,game,team.id);
     const recent=finished.slice(0,5), wins=finished.filter(e=>e.winnerTeamId===team.id).length;
     const scores=recent.filter(e=>e.score);
     const goals=(own)=>scores.length ? (scores.reduce((sum,e)=>sum+e.score[(e.away.id===team.id)===own?'away':'home'],0)/scores.length).toFixed(1) : '—';
     const streakText=streak?.count ? `${streak.type}${streak.count} · ${streak.count} straight ${streak.type==='W'?(streak.count===1?'win':'wins'):(streak.count===1?'loss':'losses')}` : streak?.count===0 ? 'No completed games yet' : 'Unavailable';
-    const latest=recent[0], opponent=latest && (latest.away.id===team.id?latest.home:latest.away);
+    const matchupOpponent=game[side==='away'?'home':'away'];
+    const meeting=finished.find(e=>(e.away.id===team.id && e.home.id===matchupOpponent.id) || (e.home.id===team.id && e.away.id===matchupOpponent.id));
+    const latest=meeting || recent[0], opponent=latest && (latest.away.id===team.id?latest.home:latest.away);
     const ownScore=latest && latest.score[latest.away.id===team.id?'away':'home'];
     const opponentScore=latest && latest.score[latest.away.id===team.id?'home':'away'];
     const recentResults=recent.map(event=>{
@@ -578,7 +580,7 @@
     }).join(' ');
     return {
       stats:`<dl class="popover-stats"><div><dt>Wins / losses</dt><dd>${finished.length ? `${wins} / ${finished.length-wins}` : '—'}</dd></div><div><dt>Streak</dt><dd class="popover-streak ${streak?.type==='W'?'win':streak?.type==='L'?'loss':''}">${streakText}</dd></div><div><dt>Last ${recent.length || 5}</dt><dd class="recent-results">${recentResults || '—'}</dd></div><div><dt>Goals/game · last ${recent.length || 5}</dt><dd>${goals(true)} / ${goals(false)}</dd></div></dl>`,
-      lastGame:latest ? `<p class="popover-last">Last game: <span class="${latest.winnerTeamId===team.id?'result-correct':'result-incorrect'}">${latest.winnerTeamId===team.id?'W':'L'} ${ownScore}–${opponentScore}</span> vs ${escapeHTML(opponent.abbreviation)} <span class="quiet">(${formatDay(latest.date,{month:'short',day:'numeric'})})</span></p>`:''
+      lastGame:latest ? `<p class="popover-last">${meeting?'Last meeting':'Last game'}: <span class="${latest.winnerTeamId===team.id?'result-correct':'result-incorrect'}">${latest.winnerTeamId===team.id?'W':'L'} ${ownScore}–${opponentScore}</span> vs ${escapeHTML(opponent.abbreviation)} <span class="quiet">(${formatDay(latest.date,{month:'short',day:'numeric'})})</span></p>`:''
     };
   }
   async function renderTeamStandings(game,team,token) {
