@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#f5f6f8">
   <meta name="description" content="Your weekly NHL predictions, results and accuracy. Saved on your device.">
   <title>NHL schedule</title>
-  <link rel="stylesheet" href="style.css?v=20261126-swirl-rainbow">
+  <link rel="stylesheet" href="style.css?v=20261126-final-icons">
   <script>try { document.documentElement.dataset.theme=localStorage.getItem('nhl-colour-theme')==='dark'?'dark':'light'; } catch {}</script>
-  <script src="script.js?v=20261126-swirl-rainbow" defer></script>
+  <script src="script.js?v=20261126-final-icons" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -42,9 +42,9 @@
         <div class="history-filters"><label>Season<select id="history-season"><option value="">All seasons</option></select></label><label>From<input type="date" id="history-from"></label><label>To<input type="date" id="history-to"></label><button id="clear-filters" class="text-button">Clear filters</button></div>
         <div id="history-record" class="history-record" role="status" hidden><p id="history-record-label"></p><a href="#history" class="record-clear">Show all history</a></div>
         <p id="history-summary" class="quiet status-line"></p>
-        <div class="table-wrap"><table class="history-table"><thead><tr><th scope="col">Date (ET)</th><th scope="col">Matchup / final score</th><th scope="col">Your pick</th><th scope="col">Result</th></tr></thead><tbody id="history-body"></tbody></table></div>
+        <div class="table-wrap"><table class="history-table"><colgroup><col class="history-date-column"><col class="history-matchup-column"><col class="history-pick-column"><col class="history-result-column"></colgroup><thead><tr><th scope="col">Date (ET)</th><th scope="col">Matchup / score</th><th scope="col">Your pick</th><th scope="col">Result</th></tr></thead><tbody id="history-body"></tbody></table></div>
         <p class="footnote">A Streak Break marks a correct pick that ended a winning or losing streak of at least four. Each team's broken streak counts once. No extra points.</p>
-        <p class="footnote">NHL.com links open that date's official scores page for game summaries and available highlights.</p>
+        <p class="footnote">The small report icon opens that date's NHL.com scores for summaries and available highlights. All dates and times use Eastern Time.</p>
       </section>
       <section id="stats-page" aria-labelledby="stats-title" hidden>
         <h1 id="stats-title">Stats</h1><p class="subtitle">Your accuracy and the games worth remembering.</p>
@@ -79,7 +79,7 @@
     <div id="team-popover-content" aria-live="polite"></div>
     <div class="popover-footer">
       <div id="team-popover-last"></div>
-      <a id="team-popover-link" class="popover-link" target="_blank" rel="noopener noreferrer" hidden>Puckalytics <span aria-hidden="true">↗</span></a>
+      <a id="team-popover-link" class="popover-link" target="_blank" rel="noopener noreferrer" hidden>Puckalytics <svg class="link-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 15 6-6M11 6l1.5-1.5a5 5 0 0 1 7 7L18 13M13 18l-1.5 1.5a5 5 0 0 1-7-7L6 11"/></svg></a>
     </div>
   </aside>
 </body>
