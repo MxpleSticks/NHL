@@ -141,3 +141,52 @@ html{scroll-padding-top:80px}
 @media(max-width:760px){.navigation{justify-content:space-between;gap:14px}.personal-records{grid-template-columns:1fr}.record-heading{display:flex}.record-value{margin-top:0}.stats-totals{gap:20px 32px}.stats-totals dt{font-size:11px}.stats-totals dd{font-size:24px}.record-date{font-size:11px;min-height:44px;padding:11px 0}.game-link{min-height:28px;padding:5px 0;margin-top:0}.game-time .game-link{font-size:9px}.record-heading h3{font-size:13px}}
 @media(max-width:380px){.navigation{padding-right:12px;gap:12px}.navigation a{font-size:13px}.record-value{font-size:13px}}
 
+/* History uses the schedule's spacing, with each score beside its team. */
+.final-status{display:inline-flex;align-items:center;flex-wrap:wrap;gap:0 3px;max-width:100%;white-space:normal}
+.game-time .game-link-icon{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:18px;height:34px;min-height:0;padding:0;margin:0;text-decoration:none}
+.game-time .game-link-icon:hover{color:inherit}
+@media(max-width:380px){.final-status{column-gap:0}}
+.link-icon{display:inline-block;flex-shrink:0;vertical-align:-2px}
+.game-link{display:inline-flex;align-items:center;gap:4px;vertical-align:middle}
+.popover-link .link-icon{margin-left:3px}
+.history-table{table-layout:fixed;min-width:0}
+.history-date-column{width:120px}.history-pick-column{width:112px}.history-result-column{width:138px}
+.history-table th,.history-table td{padding:8px 12px}
+.history-table th:first-child{width:auto}
+.history-table .history-date{font-size:11px;line-height:1.4}
+.history-year{display:inline;font-size:10px;margin-left:4px;color:var(--muted)}
+.history-time{margin-top:3px;font-size:10px}
+.history-matchup{--team-width:74px;display:flex;align-items:center;gap:10px;width:fit-content;max-width:100%}
+.history-side{display:flex;align-items:center;gap:6px}
+.history-table .history-side-score{margin:0;padding:0;min-width:18px;text-align:right;font-size:15px}
+.history-at{width:14px;text-align:center}
+.history-table .game-link-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:32px;min-height:0;margin:0;padding:0;flex-shrink:0;text-decoration:none;border-radius:3px}
+.history-table .game-link-icon:hover{background:var(--line);color:inherit}
+.history-pick .picked{font-size:12px;font-weight:600;gap:5px}
+.history-pick .pick-logo{width:25px;height:25px}
+.history-result{font-size:11px}
+.history-result .streak-break,.history-result .streak-pending{display:block;font-size:9px;line-height:1.3;margin-top:3px;white-space:normal}
+@media(max-width:1050px) and (min-width:761px){.history-date-column{width:98px}.history-pick-column{width:88px}.history-result-column{width:102px}.history-matchup{--team-width:64px;gap:5px}.history-side{gap:3px}.history-table th,.history-table td{padding-inline:8px}.history-pick .picked{gap:3px}}
+@media(max-width:760px){
+  .history-date-column{width:20%}.history-matchup-column{width:38%}.history-pick-column{width:20%}.history-result-column{width:22%}
+  .history-table th,.history-table td{padding:6px 4px}
+  .history-table th{font-size:10px;white-space:nowrap}
+  .history-table .history-date{font-size:10px}
+  .history-year{display:block;margin:0;font-size:9px}
+  .history-time{font-size:9px;margin-top:2px;white-space:nowrap}
+  .history-matchup{--team-width:64px;display:grid;grid-template-columns:minmax(0,1fr) 22px;grid-template-rows:24px 24px;gap:0 3px;width:100%;max-width:none}
+  .history-side{justify-content:space-between;gap:2px;min-width:0}
+  .history-away{grid-area:1/1}.history-home{grid-area:2/1}.history-at{display:none}
+  .history-table .history-side-score{font-size:13px;min-width:14px}
+  .history-table .history-matchup .team-entry{min-height:24px}
+  .history-table .history-matchup .team-info{min-height:24px;width:27px;padding:1px}
+  .history-table .history-matchup .team-info img{width:22px;height:22px}
+  .history-table .history-matchup .team{min-height:24px;font-size:11px;padding:0 1px}
+  .history-table .game-link-icon{grid-area:1/2/3/3;width:22px;height:44px;min-height:44px;padding:0;margin:0}
+  .history-pick .picked{font-size:11px;gap:3px}
+  .history-pick .pick-logo{width:22px;height:22px}
+  .history-result{font-size:10px}
+  .history-result .streak-break,.history-result .streak-pending{font-size:8px}
+}
+@media(max-width:380px){.history-matchup{--team-width:56px;column-gap:2px}.history-table .history-matchup .team-info{width:24px}.history-table .history-matchup .team-info img,.history-pick .pick-logo{width:20px;height:20px}.history-table th{font-size:9px}.history-table .history-date{font-size:9px}.history-time{font-size:8px}.history-result{font-size:9px}.history-table .history-side-score{font-size:12px}}
+
