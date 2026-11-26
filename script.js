@@ -484,9 +484,10 @@
       if(difference>margin) { margin=difference; marginGame=p; }
     }
     record('winning-margin','Biggest winning margin','The largest final-score margin for a team you correctly picked.',marginGame?[marginGame]:[],`${margin} goal${margin===1?'':'s'}`,marginGame?`${selectedTeam(marginGame).abbreviation} won ${marginGame.score.away}–${marginGame.score.home} (${marginGame.away.abbreviation}–${marginGame.home.abbreviation})`:'');
-    let bestTeam=null;
-    for(const candidate of teams.values()) if(candidate.games.length>=5 && betterPeriod(candidate.games,bestTeam?.games || [])) bestTeam=candidate;
-    record('best-team','Team you read best','Highest accuracy in games involving a team, whether you picked for or against it. At least five completed picks; ties favour more games.',bestTeam?.games || [],bestTeam?`${bestTeam.team.abbreviation} · ${percent(statsFor(bestTeam.games))}`:'');
+    const topTeams=[...teams.values()].filter(candidate=>candidate.games.length>=5).map(candidate=>({...candidate,stats:statsFor(candidate.games)})).sort((a,b)=>b.stats.correct*a.stats.total-a.stats.correct*b.stats.total || b.stats.total-a.stats.total).slice(0,3);
+    const bestTeam=topTeams[0];
+    record('best-team','Top 3 teams','Highest accuracy in games involving a team, whether you picked for or against it. At least five completed picks; ties favour more games.',bestTeam?.games || [],bestTeam?`${bestTeam.team.abbreviation} · ${percent(bestTeam.stats)}`:'');
+    records[records.length-1].topTeams=topTeams.map((candidate,index)=>({...candidate,id:index?`best-team-${index+1}`:'best-team',title:candidate.team.name,value:percent(candidate.stats)}));
     let perfectStart=0,perfectBestStart=0,perfectLength=0,perfectBestLength=0,previousDate=null;
     const dayEntries=[...days.entries()];
     for(let i=0;i<dayEntries.length;i++) {
@@ -512,6 +513,14 @@
     return `<a class="game-link${iconOnly?' game-link-icon':''}" href="https://www.nhl.com/scores/${game.date}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHTML(label)}: ${escapeHTML(game.away.name)} at ${escapeHTML(game.home.name)}, ${game.date}. Opens this date's scores in a new tab."${iconOnly?' title="Game summary on NHL.com"':''}>${iconOnly?'':escapeHTML(label)}${icon}</a>`;
   }
   function logoURL(team) { return `https://assets.nhle.com/logos/nhl/svg/${encodeURIComponent(team.abbreviation)}_${profile.theme==='dark'?'dark':'light'}.svg`; }
+  function finalMatchupHTML(game) {
+    return `<div class="history-matchup" role="group" aria-label="Final score: ${escapeHTML(game.away.abbreviation)} ${game.score.away}, ${escapeHTML(game.home.abbreviation)} ${game.score.home}"><div class="history-side history-away">${teamHTML(game.away,{game,side:'away'})}<span class="score history-side-score">${game.score.away}</span></div><span class="history-at at">at</span><div class="history-side history-home">${teamHTML(game.home,{game,side:'home'})}<span class="score history-side-score">${game.score.home}</span></div>${nhlGameLink(game,'View game on NHL.com',true)}</div>`;
+  }
+  function predictionResultHTML(p) {
+    if(!p || !completed(p)) return '<span class="quiet" aria-label="No prediction">—</span>';
+    const breaks=p.streakBreaks.length ? `<span class="streak-break" title="${escapeHTML(p.streakBreaks.map(s=>`${s.abbreviation} ${s.type}${s.count} ended`).join('; '))}">Streak Break${p.streakBreaks.length>1?` ×${p.streakBreaks.length}`:''}</span>` : '';
+    return `<span class="result-${p.result}">${p.result==='correct'?'Correct':'Incorrect'}</span>${breaks}${!p.streaksVerified?'<small class="quiet streak-pending">Streak check pending</small>':''}`;
+  }
   function pickedTeamHTML(team) {
     return `<span class="picked" aria-label="Your pick: ${escapeHTML(team.name)}"><img class="pick-logo" src="${escapeHTML(logoURL(team))}" alt="" width="25" height="25" loading="lazy" onerror="this.style.visibility='hidden'">${escapeHTML(team.abbreviation)}</span>`;
   }
@@ -706,6 +715,10 @@
     $('upcoming-count').textContent=list.filter(g=>g.status!=='final').length;
     $('final-count').textContent=list.filter(g=>g.status==='final').length;
     $('upcoming-tab').setAttribute('aria-pressed',gameFilter==='upcoming'); $('final-tab').setAttribute('aria-pressed',gameFilter==='final');
+    const showResults=gameFilter==='final',columnCount=showResults?4:3;
+    $('schedule-body').closest('table').classList.toggle('final-table',showResults);
+    $('schedule-result-heading').hidden=!showResults;
+    renderMarkup($('schedule-columns'),`<col class="time-column"><col class="matchup-column"><col class="pick-column">${showResults?'<col class="result-column">':''}`);
     const failure=Number($('schedule-status').dataset.failed || 0);
     $('schedule-page').setAttribute('aria-busy',String(loading));
     const hasSchedule=Array.from({length:7},(_,i)=>addDays(week,i)).some(day=>loadedDays.has(day));
@@ -713,17 +726,19 @@
     let html='';
     for(let i=0;i<7;i++) {
       const date=addDays(week,i), all=list.filter(g=>g.date===date), filtered=all.filter(g=>gameFilter==='final' ? g.status==='final' : g.status!=='final');
-      html+=`<tr class="date-row" data-row-key="date-${date}"><th colspan="3" scope="rowgroup">${formatDay(date,{weekday:'long',month:'long',day:'numeric'})}</th></tr>`;
+      html+=`<tr class="date-row" data-row-key="date-${date}"><th colspan="${columnCount}" scope="rowgroup">${formatDay(date,{weekday:'long',month:'long',day:'numeric'})}</th></tr>`;
       if(!filtered.length) {
         const text=!loadedDays.has(date) ? (loading?'Loading games…':'Schedule unavailable. Refresh to retry.') : !all.length ? 'No games scheduled' : gameFilter==='final' ? 'No completed games' : 'All games final — see Final';
-        html+=`<tr class="empty-row" data-row-key="empty-${date}"><td colspan="3">${text}</td></tr>`; continue;
+        html+=`<tr class="empty-row" data-row-key="empty-${date}"><td colspan="${columnCount}">${text}</td></tr>`; continue;
       }
       for(const game of filtered) {
         const p=predictionFor(game.gameId), selected=p?.selectedTeamId, interactive=canPick(game);
         const time=game.status==='final' ? escapeHTML(game.detail || 'Final') : game.status==='live' ? `Live<small>${escapeHTML(game.detail)}</small>` : game.status==='postponed' ? 'Postponed' : game.status==='canceled' ? 'Canceled' : !game.timeValid ? 'TBD' : new Intl.DateTimeFormat('en-US',{timeZone:ZONE,hour:'numeric',minute:'2-digit'}).format(new Date(game.startTime));
         const team=selected===game.away.id ? game.away : game.home;
-        const pickText=selected ? `${pickedTeamHTML(team)}${completed(p) ? `<small class="result-${p.result}">${p.result==='correct'?'Correct':'Incorrect'}${p.streakBreaks.length?' · Streak Break':''}</small>` : !interactive ? '<small>Locked</small>':''}` : 'Unpicked';
-        html+=`<tr class="${p && completed(p)?`prediction-${p.result}`:''}" data-row-key="game-${game.gameId}"><td class="game-time">${game.status==='final'?`<span class="final-status">${time}${nhlGameLink(game,'View game on NHL.com',true)}</span>`:time}</td><td><div class="matchup"><div class="matchup-teams">${teamHTML(game.away,{game,side:'away',interactive,selected:selected===game.away.id})}<span class="at">at</span>${teamHTML(game.home,{game,side:'home',interactive,selected:selected===game.home.id})}</div>${game.score?`<span class="score">${game.score.away}–${game.score.home}</span>`:''}</div></td><td class="pick-cell">${pickText}</td></tr>`;
+        const isFinal=game.status==='final';
+        const pickText=selected ? `${pickedTeamHTML(team)}${!isFinal && !interactive?'<small>Locked</small>':''}` : 'Unpicked';
+        const matchup=isFinal ? finalMatchupHTML(game) : `<div class="matchup"><div class="matchup-teams">${teamHTML(game.away,{game,side:'away',interactive,selected:selected===game.away.id})}<span class="at">at</span>${teamHTML(game.home,{game,side:'home',interactive,selected:selected===game.home.id})}</div>${game.score?`<span class="score">${game.score.away}–${game.score.home}</span>`:''}</div>`;
+        html+=`<tr class="${isFinal?'final-row ':''}${p && completed(p)?`prediction-${p.result}`:''}" data-row-key="game-${game.gameId}"><td class="game-time">${isFinal?`<span class="final-status">${time}</span>`:time}</td><td>${matchup}</td><td class="pick-cell">${pickText}</td>${showResults?`<td class="history-result">${predictionResultHTML(p)}</td>`:''}</tr>`;
       }
     }
     renderMarkup($('schedule-body'),html);
@@ -746,7 +761,7 @@
     const html=entries.length ? entries.map(p=> {
       const team=p.selectedTeamId===p.away.id?p.away:p.home;
       const breaks=p.streakBreaks.length ? `<span class="streak-break" title="${escapeHTML(p.streakBreaks.map(s=>`${s.abbreviation} ${s.type}${s.count} ended`).join('; '))}">Streak Break${p.streakBreaks.length>1?` ×${p.streakBreaks.length}`:''}</span>` : '';
-      return `<tr id="history-game-${p.gameId}" tabindex="-1" class="prediction-${p.result}${historySelection?' record-match':''}" data-row-key="game-${p.gameId}"><td class="history-date"><span class="history-date-label">${formatDay(p.date,{month:'short',day:'numeric'})}<small class="history-year">${p.date.slice(0,4)}</small></span><small class="history-time">${new Intl.DateTimeFormat('en-US',{timeZone:ZONE,hour:'numeric',minute:'2-digit'}).format(new Date(p.startTime))}</small></td><td class="history-matchup-cell"><div class="history-matchup" role="group" aria-label="Final score: ${escapeHTML(p.away.abbreviation)} ${p.score.away}, ${escapeHTML(p.home.abbreviation)} ${p.score.home}"><div class="history-side history-away">${teamHTML(p.away,{game:p,side:'away'})}<span class="score history-side-score">${p.score.away}</span></div><span class="history-at at">at</span><div class="history-side history-home">${teamHTML(p.home,{game:p,side:'home'})}<span class="score history-side-score">${p.score.home}</span></div>${nhlGameLink(p,'View game on NHL.com',true)}</div></td><td class="history-pick">${pickedTeamHTML(team)}</td><td class="history-result"><span class="result-${p.result}">${p.result==='correct'?'Correct':'Incorrect'}</span>${breaks}${!p.streaksVerified?'<small class="quiet streak-pending">Streak check pending</small>':''}</td></tr>`;
+      return `<tr id="history-game-${p.gameId}" tabindex="-1" class="prediction-${p.result}${historySelection?' record-match':''}" data-row-key="game-${p.gameId}"><td class="history-date"><span class="history-date-label">${formatDay(p.date,{month:'short',day:'numeric'})}<small class="history-year">${p.date.slice(0,4)}</small></span><small class="history-time">${new Intl.DateTimeFormat('en-US',{timeZone:ZONE,hour:'numeric',minute:'2-digit'}).format(new Date(p.startTime))}</small></td><td class="history-matchup-cell">${finalMatchupHTML(p)}</td><td class="history-pick">${pickedTeamHTML(team)}</td><td class="history-result"><span class="result-${p.result}">${p.result==='correct'?'Correct':'Incorrect'}</span>${breaks}${!p.streaksVerified?'<small class="quiet streak-pending">Streak check pending</small>':''}</td></tr>`;
     }).join('') : '<tr class="empty-row"><td colspan="4">No completed predictions'+(year||from||to?' match these filters.':" yet. Choose a team on the schedule to get started.")+'</td></tr>';
     renderMarkup($('history-body'),html);
   }
@@ -773,7 +788,7 @@
     $('stats-current').textContent=last?`${current} ${last.result}`:'—';
     $('stats-current').className=last?`result-${last.result}`:'quiet';
     const records=personalRecords(profile.predictions);
-    renderMarkup($('personal-records'),records.map(r=>`<article class="personal-record" data-record="${r.id}"><div class="record-heading"><h3>${r.title}</h3><p class="record-value${r.games.length?'':' quiet'}">${escapeHTML(r.value)}</p></div><p class="record-note">${escapeHTML(r.note)}</p>${r.detail?`<p class="record-detail">${escapeHTML(r.detail)}</p>`:''}${r.games.length?`<a class="record-date" href="#history?record=${r.id}" aria-label="View ${r.title.toLowerCase()} in History: ${escapeHTML(recordTimestamp(r.games))}">${escapeHTML(recordTimestamp(r.games))} <span aria-hidden="true">→</span></a>`:'<p class="record-empty quiet">Not enough saved results yet.</p>'}${r.id==='best-stretch'?'<details class="record-method"><summary>How it is chosen</summary><p>A Wilson lower-bound score (z = 1.96) gives more weight to sustained results than to very short runs. It is used only to rank past stretches. The accuracy shown above is always correct picks divided by completed picks.</p></details>':''}</article>`).join(''));
+    renderMarkup($('personal-records'),records.map(r=>r.topTeams?`<article class="personal-record" data-record="${r.id}"><div class="record-heading"><h3>${r.title}</h3></div>${r.topTeams.length?`<div class="top-teams">${r.topTeams.map(t=>`<a class="top-team" href="#history?record=${t.id}" aria-label="View ${escapeHTML(t.team.name)} predictions in History: ${escapeHTML(recordTimestamp(t.games))}"><img src="${escapeHTML(logoURL(t.team))}" alt="" width="25" height="25" loading="lazy" onerror="this.style.visibility='hidden'"><span class="top-team-name">${escapeHTML(t.team.name)}</span>${accuracyHTML(t.stats)}</a>`).join('')}</div>`:'<p class="record-empty quiet">At least five completed picks involving a team are needed.</p>'}</article>`:`<article class="personal-record" data-record="${r.id}"><div class="record-heading"><h3>${r.title}</h3><p class="record-value${r.games.length?'':' quiet'}">${escapeHTML(r.value)}</p></div><p class="record-note">${escapeHTML(r.note)}</p>${r.detail?`<p class="record-detail">${escapeHTML(r.detail)}</p>`:''}${r.games.length?`<a class="record-date" href="#history?record=${r.id}" aria-label="View ${r.title.toLowerCase()} in History: ${escapeHTML(recordTimestamp(r.games))}">${escapeHTML(recordTimestamp(r.games))} <span aria-hidden="true">→</span></a>`:'<p class="record-empty quiet">Not enough saved results yet.</p>'}${r.id==='best-stretch'?'<details class="record-method"><summary>How it is chosen</summary><p>A Wilson lower-bound score (z = 1.96) gives more weight to sustained results than to very short runs. It is used only to rank past stretches. The accuracy shown above is always correct picks divided by completed picks.</p></details>':''}</article>`).join(''));
   }
   function renderAll() { renderTheme(); renderHeader(); renderSchedule(); renderHistory(); renderProfile(); renderStats(); if(openTeamDetails) positionTeamPopover(); }
 
@@ -835,7 +850,7 @@
       for(const name of ['from','to']) $('history-'+name).value=validDate(params.get(name))?params.get(name):'';
       $('history-season').value=params.get('season') || '';
       if(params.has('record')) {
-        const record=personalRecords(profile.predictions).find(r=>r.id===params.get('record'));
+        const record=personalRecords(profile.predictions).flatMap(r=>r.topTeams?[...r.topTeams,r]:[r]).find(r=>r.id===params.get('record'));
         if(record?.games.length) {
           historySelection=record;
           $('history-season').value='';
